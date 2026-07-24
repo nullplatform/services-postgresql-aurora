@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# write_service_outputs — Reads Terraform outputs from the deployment module
+# and writes them to the NP service attributes via the API.
+#
+# Fields with "export: true" in the service spec (hostname, hostname_reader,
+# port) become env vars in apps when a link is activated.
+# Fields with "export: false" (db_cluster_identifier, master_secret_arn,
+# engine_family) are stored internally: db_cluster_identifier/master_secret_arn
+# are used by build_permissions_context during link actions; engine_family is
+# used by aurora-postgres-db's auto-discovery to disambiguate this server from
+# a classic rds-postgres-server sharing the same dimensions.
+# ---------------------------------------------------------------------------
+
+cd "$OUTPUT_DIR"
+
+SERVICE_ID=$(echo "$CONTEXT" | jq -r '.service.id')
+
+echo "Reading Terraform outputs for service $SERVICE_ID..."
+
+HOSTNAME=$(tofu output -raw hostname 2>/dev/null || echo "")
+HOSTNAME_READER=$(tofu output -raw hostname_reader 2>/dev/null || echo "")
+PORT=$(tofu output -raw port 2>/dev/null || echo "")
+DB_CLUSTER_IDENTIFIER=$(tofu output -raw db_cluster_identifier 2>/dev/null || echo "")
+MASTER_SECRET_ARN=$(tofu output -raw master_secret_arn 2>/dev/null || echo "")
+
+if [ -z "$HOSTNAME" ]; then
+  echo "WARNING: No hostname output found. Skipping attribute update."
+  exit 0
+fi
+
+ATTRS=$(jq -n \
+  --arg hostname              "$HOSTNAME" \
+  --arg hostname_reader       "$HOSTNAME_READER" \
+  --arg port                  "$PORT" \
+  --arg db_cluster_identifier "$DB_CLUSTER_IDENTIFIER" \
+  --arg master_secret_arn     "${MASTER_SECRET_ARN:-}" \
+  '{
+    hostname:               $hostname,
+    hostname_reader:        $hostname_reader,
+    port:                   ($port | tonumber),
+    db_cluster_identifier:  $db_cluster_identifier,
+    engine_family:          "aurora-postgresql"
+  } + (if $master_secret_arn != "" then {master_secret_arn: $master_secret_arn} else {} end)')
+
+echo "Updating service $SERVICE_ID attributes:"
+echo "  hostname:              $HOSTNAME"
+echo "  hostname_reader:       $HOSTNAME_READER"
+echo "  port:                  $PORT"
+echo "  db_cluster_identifier: $DB_CLUSTER_IDENTIFIER"
+echo "  engine_family:         aurora-postgresql"
+
+np service patch --id "$SERVICE_ID" --body "{\"attributes\": $ATTRS}"
+echo "Service attributes updated successfully."
