@@ -108,6 +108,14 @@ else
     exit 1
   fi
 
+  # application_id ends up unquoted in $TOFU_VARIABLES, word-split as argv for
+  # `tofu` in do_tofu. Reject anything that isn't a plain identifier before
+  # it's used to build DB_NAME_VAL/DB_USERNAME_VAL.
+  if [[ ! "$APPLICATION_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "ERROR: invalid application_id '${APPLICATION_ID}' (expected alphanumeric, '_' or '-' only)" >&2
+    exit 1
+  fi
+
   DB_NAME_VAL="app_${APPLICATION_ID}"
   DB_USERNAME_VAL="app_${APPLICATION_ID}"
   echo "Database: ${DB_NAME_VAL}, Username: ${DB_USERNAME_VAL}"

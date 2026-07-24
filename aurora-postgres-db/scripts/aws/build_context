@@ -78,6 +78,14 @@ if [ "${ACTION_SOURCE:-}" = "link" ]; then
   LINK_ATTRS=$(echo "$CONTEXT" | jq -r '(.link.attributes // {}) * (.parameters // {})')
   export LINK_ACCESS_LEVEL=$(echo "$LINK_ATTRS" | jq -r '.access_level // "read-write"')
 
+  # access_level is later interpolated, unquoted, into $TOFU_VARIABLES and
+  # word-split as argv for `tofu` in do_tofu. Reject anything that isn't
+  # one of the three legitimate values before it reaches that point.
+  if [[ ! "$LINK_ACCESS_LEVEL" =~ ^(read|write|read-write)$ ]]; then
+    echo "ERROR: invalid access_level '${LINK_ACCESS_LEVEL}' (expected: read, write, or read-write)" >&2
+    exit 1
+  fi
+
   ACTION_TYPE=$(echo "$CONTEXT" | jq -r '.type // ""')
 
   if [ "$ACTION_TYPE" = "delete" ] && [ -z "$SERVER_HOSTNAME" ]; then
