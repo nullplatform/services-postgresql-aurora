@@ -1,0 +1,16 @@
+# Terraform / OpenTofu
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!**/terraform.tfvars.example
+crash.log
+crash.*.log
+
+# IDE
+.idea
+.vscode-test
+
+# Claude Code session scratch (worktrees, plan-execution ledger)
+.claude/
+.superpowers/
