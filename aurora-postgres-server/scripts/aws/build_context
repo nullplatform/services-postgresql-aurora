@@ -28,6 +28,30 @@ INSTANCE_CLASS=$(echo "$SERVICE_ATTRS"   | jq -r '.instance_class    // "db.r6g.
 READER_COUNT=$(echo "$SERVICE_ATTRS"     | jq -r '.reader_count      // 0')
 POSTGRES_VERSION=$(echo "$SERVICE_ATTRS" | jq -r '.postgres_version  // "16"')
 
+# --- Validate user-supplied parameters ---------------------------------------
+# instance_class/reader_count/postgres_version come from .parameters (an
+# authenticated nullplatform API caller with create/update permission on this
+# service), which are free-text fields in the service spec (no JSON Schema
+# enum). They're later interpolated, unquoted, into $TOFU_VARIABLES and word-
+# split as argv for `tofu` in do_tofu. A value starting with "-" or containing
+# whitespace could smuggle extra flags into that invocation. Reject anything
+# that doesn't look like a legitimate value for its field before it ever
+# reaches TOFU_VARIABLES.
+if [[ ! "$INSTANCE_CLASS" =~ ^db\.[a-z0-9]+\.[a-z0-9]+$ ]]; then
+  echo "ERROR: invalid instance_class '${INSTANCE_CLASS}' (expected format: db.<family>.<size>)" >&2
+  exit 1
+fi
+
+if [[ ! "$READER_COUNT" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: invalid reader_count '${READER_COUNT}' (expected a non-negative integer)" >&2
+  exit 1
+fi
+
+if [[ ! "$POSTGRES_VERSION" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "ERROR: invalid postgres_version '${POSTGRES_VERSION}' (expected e.g. \"16\" or \"16.4\")" >&2
+  exit 1
+fi
+
 # --- Read static config from values.yaml ------------------------------------
 # CRITICAL: $VALUES is a FILE PATH (set by "np service workflow exec --values <path>"),
 # NOT JSON content. Read values with yaml_value() from build_context.
@@ -146,4 +170,9 @@ if [ "${ACTION_SOURCE:-}" = "link" ]; then
 
   LINK_ATTRS=$(echo "$CONTEXT" | jq -r '(.link.attributes // {}) * (.parameters // {})')
   export LINK_ACCESS_LEVEL=$(echo "$LINK_ATTRS" | jq -r '.access_level // "read-write"')
+
+  if [[ ! "$LINK_ACCESS_LEVEL" =~ ^(read|write|read-write)$ ]]; then
+    echo "ERROR: invalid access_level '${LINK_ACCESS_LEVEL}' (expected: read, write, or read-write)" >&2
+    exit 1
+  fi
 fi
