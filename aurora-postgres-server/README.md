@@ -54,8 +54,6 @@ aurora-postgres-server  ──────► AWS Aurora PostgreSQL Cluster
 | `username` | PostgreSQL user for this link |
 | `password` | PostgreSQL password (injected as secret) |
 | `database_name` | PostgreSQL database name for this link |
-| `hostname` | Aurora writer endpoint |
-| `port` | Aurora port |
 
 ## Configuration Parameters
 
@@ -80,7 +78,7 @@ aurora-postgres-server  ──────► AWS Aurora PostgreSQL Cluster
 
 ## Requirements
 
-See [`specs/install/README.md`](specs/install/README.md) to register the service on a nullplatform account, and [`specs/requirements/aws`](specs/requirements/aws) for the AssumeRole IAM role/policies the agent needs. The AssumeRole setup steps (apply `requirements/`, grant the agent `sts:AssumeRole`, register an `identity-access-control` provider with selector `aurora-postgres-server`) are identical in shape to `rds-postgres-server`'s — only the role/selector name changes.
+See [`specs/install/README.md`](specs/install/README.md) to register the service on a nullplatform account, and [`specs/requirements/aws`](specs/requirements/aws) for the AssumeRole IAM role/policies the agent needs. Applying `requirements/aws` creates the role `nullplatform-<cluster_name>-aurora-postgres-server-role`. The AssumeRole setup steps (apply `requirements/`, grant the agent `sts:AssumeRole`, register an `identity-access-control` provider with selector `aurora-postgres-server`) are identical in shape to `rds-postgres-server`'s — only the role/selector name changes.
 
 The VPC must have private subnets tagged `nullplatform/subnet-type=private`, same as `rds-postgres-server`.
 
