@@ -20,4 +20,4 @@ You can check *Echo Server* documentation [here](https://ealenn.github.io/Echo-S
 ## Services in this repo
 
 - [`aurora-postgres-server`](aurora-postgres-server/README.md) — provisions an Aurora PostgreSQL cluster (writer + configurable readers) in AWS.
-- [`aurora-postgres-db`](aurora-postgres-db/README.md) — provisions a logical PostgreSQL database + per-link users inside an existing `aurora-postgres-server` cluster.
+- [`aurora-postgres-db`](aurora-postgres-db/README.md) — provisions a logical PostgreSQL database + per-link grants inside an existing `aurora-postgres-server` cluster.
