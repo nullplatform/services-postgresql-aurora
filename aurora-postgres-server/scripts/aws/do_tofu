@@ -12,6 +12,10 @@ set -euo pipefail
 #
 # Set by the workflow YAML configuration block:
 #   TOFU_ACTION         — "apply" or "destroy"
+#   TOFU_TARGETS        — optional, comma-separated resource addresses; when
+#                         set, only these resources are targeted (used by
+#                         unlink.yaml to destroy grants only, preserving the
+#                         database and role)
 # ---------------------------------------------------------------------------
 
 TOFU_ACTION="${TOFU_ACTION:-apply}"
@@ -54,6 +58,14 @@ echo "Running: tofu init"
 # shellcheck disable=SC2086
 tofu init $TOFU_INIT_VARIABLES
 
+TOFU_TARGET_FLAGS=""
+if [ -n "${TOFU_TARGETS:-}" ]; then
+  IFS=',' read -ra _TARGETS <<< "$TOFU_TARGETS"
+  for target in "${_TARGETS[@]}"; do
+    TOFU_TARGET_FLAGS="$TOFU_TARGET_FLAGS -target=$target"
+  done
+fi
+
 echo "Running: tofu $TOFU_ACTION"
 # shellcheck disable=SC2086
-tofu "$TOFU_ACTION" -auto-approve $TOFU_VARIABLES
+tofu "$TOFU_ACTION" -auto-approve $TOFU_VARIABLES $TOFU_TARGET_FLAGS

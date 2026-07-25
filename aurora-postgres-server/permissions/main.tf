@@ -1,10 +1,20 @@
 # ---------------------------------------------------------------------------
 # Database (idempotent: creates if not exists, owned by master)
+#
+# prevent_destroy so unlink (a targeted destroy of the grant resources only,
+# see workflows/aws/unlink.yaml) can never drop this database even if the
+# module's targets are ever misconfigured — unlink is documented to preserve
+# data, and this makes that a Terraform-enforced guarantee, not just a
+# targeting convention.
 # ---------------------------------------------------------------------------
 
 resource "postgresql_database" "app" {
   name  = var.db_name
   owner = var.master_username
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # ---------------------------------------------------------------------------

@@ -51,3 +51,6 @@ steps:
     file: $SERVICE_PATH/scripts/aws/do_tofu
     configuration:
       TOFU_ACTION: destroy
+      # Destroy only grant resources. The database and role are preserved —
+      # data survives unlink and access can be re-granted later.
+      TOFU_TARGETS: "postgresql_default_privileges.tables,postgresql_grant.tables,postgresql_grant.schema_usage,postgresql_grant.connect"
