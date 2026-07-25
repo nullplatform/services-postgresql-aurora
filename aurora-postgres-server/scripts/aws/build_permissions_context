@@ -90,6 +90,15 @@ if [ -z "$DB_NAME" ]; then
   exit 1
 fi
 
+# db_name is a free-text, user-supplied link parameter that ends up unquoted
+# in $TOFU_VARIABLES, word-split as argv for `tofu` in do_tofu. Reject
+# anything that isn't a plain PostgreSQL-identifier-shaped string before it's
+# used to build TOFU_VARIABLES.
+if [[ ! "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+  echo "ERROR: invalid db_name '${DB_NAME}' (expected a valid identifier: letters, digits, underscore, not starting with a digit)" >&2
+  exit 1
+fi
+
 # --- Prepare link-specific working directory --------------------------------
 # Override OUTPUT_DIR so each link has its own isolated workspace and tfstate.
 
