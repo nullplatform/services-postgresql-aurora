@@ -68,6 +68,7 @@ resource "aws_iam_policy" "nullplatform_rds_policy" {
           "rds:DeleteDBCluster",
           "rds:ModifyDBCluster",
           "rds:DescribeDBClusters",
+          "rds:DescribeGlobalClusters",
           "rds:CreateDBInstance",
           "rds:DeleteDBInstance",
           "rds:ModifyDBInstance",
