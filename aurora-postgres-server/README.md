@@ -59,7 +59,7 @@ aurora-postgres-server  ──────► AWS Aurora PostgreSQL Cluster
 
 | Parameter | Type | Default | Allowed Values | Editable After Create |
 |---|---|---|---|---|
-| `instance_class` | string | `db.r6g.large` | Any Aurora-PostgreSQL-compatible instance class (e.g. `db.r6g.*`, `db.t4g.*`) | Yes |
+| `instance_class` | string | `db.r6g.large` | `db.t4g.medium`, `db.r6g.large`, `db.r6g.xlarge`, `db.r6g.2xlarge`, `db.r6g.4xlarge` | Yes |
 | `reader_count` | number | `0` | 0–15 | Yes |
 | `postgres_version` | string | `16` | `13`, `14`, `15`, `16` | No |
 

@@ -22,6 +22,7 @@
           "type": "string",
           "title": "Instance Class",
           "default": "db.r6g.large",
+          "enum": ["db.t4g.medium", "db.r6g.large", "db.r6g.xlarge", "db.r6g.2xlarge", "db.r6g.4xlarge"],
           "description": "Aurora instance class applied to every cluster instance (writer and readers)",
           "editableOn": ["create", "update"],
           "order": 1
