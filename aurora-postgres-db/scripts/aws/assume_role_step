@@ -1,0 +1,55 @@
+#!/bin/bash
+# Dedicated workflow step: resolve the target IAM role and assume it, exporting
+# temporary credentials so every subsequent step (including tofu) inherits them.
+#
+# Runs FIRST in each AWS-touching workflow. The workflow YAML must declare
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN as
+# output:environment so the engine propagates them to the following steps.
+#
+# The AWS IAM provider (type "aws-iam-configuration", stored key
+# "iam_role_arns.arns") is looked up directly via the np CLI, at the service's
+# namespace NRN. CONTEXT.providers[...] is NOT used here (confirmed live on a
+# real agent to never be populated regardless of provider_categories).
+#
+# Resolution precedence (see resolve_assume_role_arn in assume_role_lib):
+#   $AURORA_POSTGRES_DB_ASSUME_ROLE_ARN -> IAM provider by selector
+#     -> $AURORA_POSTGRES_DB_ASSUME_ROLE_ARN_DEFAULT -> agent credentials
+#
+# Requires: aws CLI, np CLI, jq. Expects: CONTEXT (engine-injected), SERVICE_ID (optional).
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/assume_role_lib"
+
+AURORA_POSTGRES_DB_ASSUME_ROLE_SELECTOR="${AURORA_POSTGRES_DB_ASSUME_ROLE_SELECTOR:-aurora-postgres-db}"
+
+NRN=$(echo "${CONTEXT:-}" | jq -r '.service.nrn // .scope.nrn // .entity_nrn // ""' 2>/dev/null)
+
+DIMENSIONS=$(echo "${CONTEXT:-}" | jq -r '
+  if (.service.dimensions | type) == "object" and ((.service.dimensions | length) > 0)
+  then [ .service.dimensions | to_entries[] | "\(.key):\(.value)" ] | join(",")
+  else empty end' 2>/dev/null)
+
+IAM_PROVIDER=$(np provider list \
+  --nrn "$NRN" \
+  --categories identity-access-control \
+  ${DIMENSIONS:+--dimensions "$DIMENSIONS"} \
+  --format json 2>/dev/null \
+  | jq -c '(.results // [])[0].attributes // {}')
+
+AURORA_POSTGRES_DB_ASSUME_ROLE_ARN=$(resolve_assume_role_arn \
+  "$IAM_PROVIDER" \
+  "$AURORA_POSTGRES_DB_ASSUME_ROLE_SELECTOR" \
+  "AURORA_POSTGRES_DB_ASSUME_ROLE_ARN" \
+  "AURORA_POSTGRES_DB_ASSUME_ROLE_ARN_DEFAULT")
+export AURORA_POSTGRES_DB_ASSUME_ROLE_ARN
+
+if ! source "$SCRIPT_DIR/assume_role"; then
+  echo "   ❌ assume_role step failed: could not assume $AURORA_POSTGRES_DB_ASSUME_ROLE_ARN" >&2
+  echo "" >&2
+  echo "💡 Possible causes:" >&2
+  echo "   • The agent's role is not allowed to sts:AssumeRole the target role" >&2
+  echo "   • The target role does not exist or does not trust the agent role" >&2
+  echo "   • There is no role ARN configured for selector=$AURORA_POSTGRES_DB_ASSUME_ROLE_SELECTOR at NRN=$NRN${DIMENSIONS:+ dimensions=$DIMENSIONS}" >&2
+  echo "" >&2
+  exit 1
+fi

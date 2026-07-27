@@ -16,3 +16,8 @@ You can check *Echo Server* documentation [here](https://ealenn.github.io/Echo-S
 
 1. Change the Dockerfile to run the application / binary that you are building
 2. Deploy your application in nullplatform
+
+## Services in this repo
+
+- [`aurora-postgres-server`](aurora-postgres-server/README.md) — provisions an Aurora PostgreSQL cluster (writer + configurable readers) in AWS.
+- [`aurora-postgres-db`](aurora-postgres-db/README.md) — provisions a logical PostgreSQL database + per-link grants inside an existing `aurora-postgres-server` cluster.

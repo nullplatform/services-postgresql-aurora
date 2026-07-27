@@ -1,0 +1,11 @@
+nrn        = "" # namespace-level NRN, e.g. organization=<org>:account=<account>:namespace=<namespace>
+np_api_key = ""
+
+repository_org  = "" # GitHub org/user hosting your fork of services-aurora
+repository_name = "services-aurora"
+
+tags_selectors = {
+  "environment" = ""
+}
+
+# repository_branch = "main"
