@@ -60,6 +60,26 @@ resource "aws_secretsmanager_secret_version" "master" {
 }
 
 # ---------------------------------------------------------------------------
+# KMS key for Aurora storage encryption (customer managed, required by
+# AVD-AWS-0079 — the default AWS-managed RDS key doesn't satisfy that check)
+# ---------------------------------------------------------------------------
+
+resource "aws_kms_key" "aurora" {
+  description         = "Customer managed key for Aurora cluster storage encryption (${var.instance_name})"
+  enable_key_rotation = true
+
+  tags = {
+    "managed-by" = "nullplatform"
+    "service-id" = var.service_id
+  }
+}
+
+resource "aws_kms_alias" "aurora" {
+  name          = "alias/nullplatform-aurora-${var.instance_name}"
+  target_key_id = aws_kms_key.aurora.key_id
+}
+
+# ---------------------------------------------------------------------------
 # Aurora PostgreSQL cluster
 # ---------------------------------------------------------------------------
 
@@ -85,6 +105,7 @@ resource "aws_rds_cluster" "main" {
   vpc_security_group_ids = [aws_security_group.aurora.id]
 
   storage_encrypted   = true
+  kms_key_id          = aws_kms_key.aurora.arn
   port                = 5432
   skip_final_snapshot = true
   deletion_protection = false
