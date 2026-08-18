@@ -1,13 +1,13 @@
 # aurora-postgres-db
 
-A nullplatform dependency service that provisions and manages a **PostgreSQL database** within an existing Aurora cluster managed by [`aurora-postgres-server`](../aurora-postgres-server). It handles database creation, app-level user management, and per-link fine-grained access control — without creating any AWS infrastructure itself.
+A nullplatform dependency service that provisions and manages a **PostgreSQL database** within an existing Aurora cluster managed by [`aurora-postgres-server`](../aurora-postgres-server). It handles database creation, app-level user management, and per-link fine-grained access control. Unlike `aurora-postgres-server`, it does not provision any Aurora/EC2 infrastructure — the one AWS resource it does create is the Secrets Manager secret holding the app-level PostgreSQL credentials.
 
 ## What It Does
 
 - Auto-discovers a compatible `aurora-postgres-server` in the same nullplatform namespace using dimension matching **and** an internal `engine_family = "aurora-postgresql"` attribute (disambiguates from a classic RDS `rds-postgres-server` that might share the same dimensions)
 - Creates a dedicated PostgreSQL database and application-level user within that cluster
 - Manages per-link permissions: each link to an application applies scoped grants (`read`, `write`, or `read-write`) to the single, shared service-level PostgreSQL user — links do not get their own user, only their own grant set
-- Stores connection credentials in nullplatform service and link attributes for injection into applications
+- Stores connection credentials in nullplatform service and link attributes for injection into applications, and mirrors the app-level credentials into a Secrets Manager secret (same convention as the `aurora-postgres-server` master secret)
 
 ## Architecture
 
@@ -24,7 +24,7 @@ nullplatform Application
              postgresql_grant.*  (on the existing service-level user — no new role is created)
 ```
 
-Unlike `aurora-postgres-server`, this service creates no AWS resources. It only manages PostgreSQL-level objects on the shared Aurora cluster: one database and one role at service level, plus per-link grants on that same role — unlike `aurora-postgres-server`, which creates a dedicated role per link.
+Unlike `aurora-postgres-server`, this service creates no Aurora/EC2 infrastructure — it only manages PostgreSQL-level objects on the shared Aurora cluster: one database and one role at service level, plus per-link grants on that same role, plus one Secrets Manager secret for the app-level credentials it generates.
 
 ## Nullplatform Integration
 
@@ -42,7 +42,8 @@ Unlike `aurora-postgres-server`, this service creates no AWS resources. It only 
 | `username` | exported | Service-level PostgreSQL user |
 | `password` | hidden | Service-level PostgreSQL password |
 | `database_name` | exported | PostgreSQL database name |
-| `master_secret_arn` | internal | Secrets Manager ARN (used for link operations) |
+| `master_secret_arn` | internal | Secrets Manager ARN for the `aurora-postgres-server` master credentials (used for link operations) |
+| `app_secret_arn` | internal | Secrets Manager ARN for this service's own app-level credentials |
 
 ### Link Attributes (written per link)
 
@@ -51,6 +52,7 @@ Unlike `aurora-postgres-server`, this service creates no AWS resources. It only 
 | `username` | The service-level PostgreSQL user, mirrored to the link (same value for every link on this service) |
 | `password` | The service-level PostgreSQL password, mirrored to the link |
 | `database_name` | Database name (same as service-level database) |
+| `app_secret_arn` | Secrets Manager ARN for the service-level app credentials (mirrored from the service attribute) |
 
 ## Link Parameters
 
@@ -70,9 +72,9 @@ Unlike `aurora-postgres-server`, this service creates no AWS resources. It only 
 
 | Workflow | Trigger | What It Does |
 |---|---|---|
-| `create` | Service created | Auto-discovers server, creates database + app user, writes service attributes |
+| `create` | Service created | Auto-discovers server, creates database + app user, stores app credentials in Secrets Manager, writes service attributes |
 | `update` | Service updated | No-op (no configurable parameters) |
-| `delete` | Service deleted | Reassigns owned objects to master, destroys app user; **database is preserved** |
+| `delete` | Service deleted | Reassigns owned objects to master, destroys app user and its Secrets Manager secret; **database is preserved** |
 | `link` | Application linked | Applies scoped grants for this link to the existing service-level PostgreSQL user |
 | `unlink` | Application unlinked | Revokes grants only; user and database are **preserved** |
 
@@ -85,10 +87,20 @@ username      = "app_<application_id>"
 
 This is a service-level derivation only — there is no separate per-link username. Every link on the same service shares this one PostgreSQL user, distinguished only by the grants each link's `access_level` applies to it.
 
+## Infrastructure Resources Created
+
+| Resource | Description |
+|---|---|
+| `postgresql_database` | The application database (preserved on delete) |
+| `postgresql_role` | The service-level app user |
+| `aws_secretsmanager_secret` | Stores the app-level credentials (`nullplatform/aurora/<service_id>/app`); destroyed alongside the app user on service delete |
+
+No Aurora, EC2, or VPC resources are created — those belong to the auto-discovered `aurora-postgres-server`.
+
 ## Requirements
 
 - An active **`aurora-postgres-server`** service in the same nullplatform namespace with `status: active`, matching dimensions, and `hostname`/`master_secret_arn`/`engine_family` attributes already set.
-- See [`specs/install/README.md`](specs/install/README.md) and [`specs/requirements/aws`](specs/requirements/aws) for platform registration and the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager read access scoped to `nullplatform/aurora/*`).
+- See [`specs/install/README.md`](specs/install/README.md) and [`specs/requirements/aws`](specs/requirements/aws) for platform registration and the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager access — read the master secret, full lifecycle on the app secret it owns — scoped to `nullplatform/aurora/*`). As with `rds-postgres-db`, this grant is shared per cluster, not per instance: anything that assumes the role can create/update/delete any secret under that prefix, not just its own.
 
 ## Important Considerations
 
