@@ -168,6 +168,14 @@ resource "aws_iam_policy" "nullplatform_rds_s3_policy" {
 
 ################################################################################
 # Secrets Manager IAM policy
+#
+# The KMS statement is what makes the secret_kms_key_id parameter usable: when
+# it is set, Secrets Manager calls KMS on this role's behalf to wrap and unwrap
+# the master secret, so without it CreateSecret/GetSecretValue fail with
+# AccessDenied on the key rather than on the secret. The key ARN is
+# operator-supplied and therefore not knowable here, so the grant is scoped by
+# kms:ViaService instead — these actions are only allowed when the call comes
+# through Secrets Manager, never for decrypting anything else with that key.
 ################################################################################
 
 resource "aws_iam_policy" "nullplatform_rds_secretsmanager_policy" {
@@ -194,6 +202,20 @@ resource "aws_iam_policy" "nullplatform_rds_secretsmanager_policy" {
           "secretsmanager:ListSecretVersionIds"
         ],
         "Resource" : "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "kms:ViaService" : "secretsmanager.*.amazonaws.com"
+          }
+        }
       }
     ]
   })
