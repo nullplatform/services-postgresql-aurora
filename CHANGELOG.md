@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.1.0...v0.1.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* add KMS IAM policy to the aurora-postgres-server permissions role ([ecfb57f](https://github.com/nullplatform/services-postgresql-aurora/commit/ecfb57ff39a138864a138c1f3bcfe22655f84c7e))
+
 ## [0.1.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.0.2...v0.1.0) (2026-08-24)
 
 
