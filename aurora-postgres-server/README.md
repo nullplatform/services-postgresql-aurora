@@ -66,7 +66,7 @@ aurora-postgres-server  ──────► AWS Aurora PostgreSQL Cluster
 
 > `postgres_version` cannot be changed after creation, mirroring `rds-postgres-server`'s `postgres_version` immutability — major version upgrades require manual intervention.
 > `reader_count` is safe to change at any time: Terraform adds/removes `aws_rds_cluster_instance` resources by index, not by writer/reader role — Aurora's cluster endpoints (`hostname`/`hostname_reader`) always route to whichever instance currently holds that role, re-electing a writer automatically on failover.
-> `secret_kms_key_id` controls which KMS key encrypts the master password secret in Secrets Manager. If left unset, AWS encrypts it with the default `aws/secretsmanager` managed key — pass a customer-managed key ARN here only if this instance requires its own key. This is unrelated to the customer-managed key already used for cluster storage encryption (`aws_kms_key.aurora`).
+> `secret_kms_key_id` controls which KMS key encrypts the master password secret in Secrets Manager. If left unset, AWS encrypts it with the default `aws/secretsmanager` managed key — pass a customer-managed key ARN here only if this instance requires its own key. This is unrelated to the customer-managed key already used for cluster storage encryption (`aws_kms_key.aurora`). Using it requires the `kms:Decrypt`/`kms:GenerateDataKey` grant in [`specs/requirements/aws`](specs/requirements/aws), scoped by `kms:ViaService` to Secrets Manager; the key's own key policy must also allow this role.
 
 ## Workflows
 
