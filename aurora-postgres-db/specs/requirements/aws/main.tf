@@ -23,6 +23,14 @@ resource "aws_iam_role" "nullplatform_aurora_postgres_db" {
 ################################################################################
 # Secrets Manager IAM policy — read the Aurora master password, manage the
 # app-level credentials secret this service creates in db_setup/
+#
+# The KMS statement covers the case where the aurora-postgres-server sets
+# secret_kms_key_id: Secrets Manager then calls KMS on this role's behalf to
+# wrap and unwrap the secret, so without it CreateSecret/GetSecretValue fail
+# with AccessDenied on the key rather than on the secret. The key ARN is
+# operator-supplied and therefore not knowable here, so the grant is scoped by
+# kms:ViaService instead — these actions are only allowed when the call comes
+# through Secrets Manager, never for decrypting anything else with that key.
 ################################################################################
 
 resource "aws_iam_policy" "nullplatform_aurora_postgres_db_secretsmanager_policy" {
@@ -33,22 +41,38 @@ resource "aws_iam_policy" "nullplatform_aurora_postgres_db_secretsmanager_policy
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "secretsmanager:CreateSecret",
-        "secretsmanager:DeleteSecret",
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:PutSecretValue",
-        "secretsmanager:UpdateSecret",
-        "secretsmanager:TagResource",
-        "secretsmanager:UntagResource",
-        "secretsmanager:GetResourcePolicy",
-        "secretsmanager:ListSecretVersionIds"
-      ]
-      Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:nullplatform/aurora/*"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:TagResource",
+          "secretsmanager:UntagResource",
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:ListSecretVersionIds"
+        ]
+        Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:nullplatform/aurora/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "kms:ViaService" = "secretsmanager.*.amazonaws.com"
+          }
+        }
+      }
+    ]
   })
 }
 

@@ -95,12 +95,14 @@ This is a service-level derivation only — there is no separate per-link userna
 | `postgresql_role` | The service-level app user |
 | `aws_secretsmanager_secret` | Stores the app-level credentials (`nullplatform/aurora/<service_id>/app`); destroyed alongside the app user on service delete |
 
+The app secret is encrypted with whatever KMS key the auto-discovered `aurora-postgres-server` has in its `secret_kms_key_id` attribute, so a cluster's master secret and all of its app secrets share one customer-managed key and one revocation point. When the server leaves it unset, AWS encrypts the app secret with the default `aws/secretsmanager` managed key. There is no per-database override: the key is an infrastructure-level choice that belongs on the server.
+
 No Aurora, EC2, or VPC resources are created — those belong to the auto-discovered `aurora-postgres-server`.
 
 ## Requirements
 
 - An active **`aurora-postgres-server`** service in the same nullplatform namespace with `status: active`, matching dimensions, and `hostname`/`master_secret_arn`/`engine_family` attributes already set.
-- See [`specs/install/README.md`](specs/install/README.md) and [`specs/requirements/aws`](specs/requirements/aws) for platform registration and the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager access — read the master secret, full lifecycle on the app secret it owns — scoped to `nullplatform/aurora/*`). As with `rds-postgres-db`, this grant is shared per cluster, not per instance: anything that assumes the role can create/update/delete any secret under that prefix, not just its own.
+- See [`specs/install/README.md`](specs/install/README.md) and [`specs/requirements/aws`](specs/requirements/aws) for platform registration and the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager access — read the master secret, full lifecycle on the app secret it owns — scoped to `nullplatform/aurora/*`, plus `kms:Decrypt`/`kms:GenerateDataKey` scoped by `kms:ViaService` to Secrets Manager so a customer-managed `secret_kms_key_id` works). As with `rds-postgres-db`, this grant is shared per cluster, not per instance: anything that assumes the role can create/update/delete any secret under that prefix, not just its own.
 
 ## Important Considerations
 

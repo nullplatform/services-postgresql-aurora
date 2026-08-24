@@ -44,6 +44,7 @@ resource "postgresql_role" "app_user" {
 resource "aws_secretsmanager_secret" "app" {
   name                    = "nullplatform/aurora/${var.service_id}/app"
   recovery_window_in_days = 0
+  kms_key_id              = var.secret_kms_key_id
 
   tags = {
     "managed-by" = "nullplatform"
