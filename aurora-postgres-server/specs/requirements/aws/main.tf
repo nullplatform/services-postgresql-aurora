@@ -48,6 +48,12 @@ resource "aws_iam_role_policy_attachment" "rds_s3" {
   policy_arn = aws_iam_policy.nullplatform_rds_s3_policy[0].arn
 }
 
+resource "aws_iam_role_policy_attachment" "rds_kms" {
+  count      = local.iam_create ? 1 : 0
+  role       = aws_iam_role.nullplatform_aurora_postgres_server[0].name
+  policy_arn = aws_iam_policy.nullplatform_rds_kms_policy[0].arn
+}
+
 ################################################################################
 # RDS/Aurora IAM policy
 ################################################################################
@@ -216,6 +222,85 @@ resource "aws_iam_policy" "nullplatform_rds_secretsmanager_policy" {
             "kms:ViaService" : "secretsmanager.*.amazonaws.com"
           }
         }
+      }
+    ]
+  })
+}
+
+
+################################################################################
+# KMS IAM policy
+################################################################################
+
+resource "aws_iam_policy" "nullplatform_rds_kms_policy" {
+  count = local.iam_create ? 1 : 0
+
+  name        = "${local.policies_name_prefix}-rds-kms-policy"
+  description = "Policy for managing KMS keys for the Aurora Cluster"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "KmsCreateAndList",
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:CreateKey",
+          "kms:TagResource",
+          "kms:ListKeys",
+          "kms:ListAliases"
+        ],
+        "Resource" : "*"
+      },
+      {
+        "Sid" : "KmsManageKey",
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",
+          "kms:ListResourceTags",
+          "kms:ListKeyPolicies",
+          "kms:EnableKeyRotation",
+          "kms:DisableKeyRotation",
+          "kms:UpdateKeyDescription",
+          "kms:PutKeyPolicy",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:EnableKey",
+          "kms:DisableKey",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        "Resource" : "arn:aws:kms:*:${data.aws_caller_identity.current.account_id}:key/*"
+      },
+      {
+        "Sid" : "KmsCreateGrantForRds",
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:CreateGrant",
+          "kms:ListGrants",
+          "kms:RevokeGrant"
+        ],
+        "Resource" : "arn:aws:kms:*:${data.aws_caller_identity.current.account_id}:key/*",
+        "Condition" : {
+          "Bool" : {
+            "kms:GrantIsForAWSResource" : "true"
+          }
+        }
+      },
+      {
+        "Sid" : "KmsManageAlias",
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:CreateAlias",
+          "kms:UpdateAlias",
+          "kms:DeleteAlias"
+        ],
+        "Resource" : [
+          "arn:aws:kms:*:${data.aws_caller_identity.current.account_id}:alias/nullplatform-aurora-*",
+          "arn:aws:kms:*:${data.aws_caller_identity.current.account_id}:key/*"
+        ]
       }
     ]
   })
