@@ -34,11 +34,7 @@ jobs:
   # Server image rides the full chain: release-please + build + push +
   # artifact registration + release finalize.
   release:
-    # Pinned to a commit, not a tag: release-publish-oci.yml was added to
-    # actions-nullplatform in September 2026 and the newest tag (v1.3.2) is from
-    # May, so it does not contain this file — @v1.3.2 fails to resolve. Move this
-    # to a tag once one is cut that includes the workflow.
-    uses: nullplatform/actions-nullplatform/.github/workflows/release-publish-oci.yml@3a6b303790f11b1df537bdd792a6c3a5fc8f595c
+    uses: nullplatform/actions-nullplatform/.github/workflows/release-publish-oci.yml@v1.4.0
     with:
       image_name: services/aurora-postgres-server
       dockerfile: Dockerfile.aurora-postgres-server
