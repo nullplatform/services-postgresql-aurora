@@ -1,15 +1,185 @@
 name: release
 
+# One repo, TWO worker images (aurora-postgres-server + aurora-postgres-db), one
+# chained run: release-please cuts the version once, the release-publish-oci
+# chain builds/pushes/registers the SERVER image, and a parallel pair of jobs
+# does the same for the DB image against the same tag — both artifacts end up
+# in the release notes.
+#
+# Chained on purpose: release-please creates tags with GITHUB_TOKEN, and
+# GitHub never triggers workflows from bot-token events.
+#
+# Recovery / backfill: dispatch with existing_tag to publish + finalize a tag
+# that already exists.
+#
+# Configure: secrets AWS_ROLE_ARN_ECR_PUSH + ARTIFACT_NP_API_KEY, variable
+# NP_ARTIFACT_NRN.
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      existing_tag:
+        description: 'Publish + finalize an existing tag (recovery/backfill)'
+        required: true
+        type: string
 
 permissions:
   contents: write
   pull-requests: write
+  id-token: write   # OIDC auth against AWS for the ECR pushes
 
 jobs:
+  # Server image rides the full chain: release-please + build + push +
+  # artifact registration + release finalize.
   release:
-    uses: nullplatform/actions-nullplatform/.github/workflows/release.yml@main
-    secrets: inherit
+    uses: nullplatform/actions-nullplatform/.github/workflows/release-publish-oci.yml@v1.4.0
+    with:
+      image_name: services/aurora-postgres-server
+      dockerfile: Dockerfile.aurora-postgres-server
+      existing_tag: ${{ inputs.existing_tag || '' }}
+    secrets:
+      aws_role_arn: ${{ secrets.AWS_ROLE_ARN_ECR_PUSH }}
+      artifact_np_api_key: ${{ secrets.ARTIFACT_NP_API_KEY }}
+
+  # DB image: same tag, built inline (a second reusable call to the same
+  # workflow file at a different ref made the run fail at startup; an inline
+  # buildx job sidesteps it and mirrors what the chain's build does).
+  publish_db:
+    name: Build & push aurora-postgres-db
+    needs: release
+    if: ${{ !cancelled() && (needs.release.outputs.release_created == 'true' || inputs.existing_tag != '') }}
+    runs-on: ubuntu-24.04
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+    env:
+      IMAGE: public.ecr.aws/nullplatform/services/aurora-postgres-db
+      TAG: ${{ inputs.existing_tag || needs.release.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.existing_tag || needs.release.outputs.tag_name }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_ECR_PUSH }}
+          aws-region: us-east-1
+      - name: Login to ECR Public
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+      - name: Build and push
+        id: build
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -f Dockerfile.aurora-postgres-db \
+            -t "$IMAGE:$TAG" \
+            --push .
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "pushed $IMAGE:$TAG @ $DIGEST"
+
+  # ...and its own artifact registration + release-notes row (the chain
+  # registers one image per run; this repo ships two from one version).
+  finalize_db:
+    name: Register db artifact & append to release
+    needs: [release, publish_db]
+    if: ${{ !cancelled() && needs.publish_db.result == 'success' }}
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.existing_tag || needs.release.outputs.tag_name }}
+      DIGEST: ${{ needs.publish_db.outputs.image_digest }}
+      ECR_REGISTRY: public.ecr.aws/nullplatform
+      IMAGE_NAME: services/aurora-postgres-db
+    steps:
+      - name: Register oci_image artifact (db)
+        id: artifact
+        env:
+          NULLPLATFORM_API_KEY: ${{ secrets.ARTIFACT_NP_API_KEY }}
+          NP_ARTIFACT_NRN: ${{ vars.NP_ARTIFACT_NRN }}
+        run: |
+          set -o pipefail
+          if [ -z "$NULLPLATFORM_API_KEY" ]; then
+            echo "::error::ARTIFACT_NP_API_KEY secret is empty or not set"
+            exit 1
+          fi
+          if [ -z "$NP_ARTIFACT_NRN" ]; then
+            echo "::error::NP_ARTIFACT_NRN variable is not set"
+            exit 1
+          fi
+          curl -fsSL https://cli.nullplatform.com/install.sh | VERSION=alpha sh
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Annotations are last-write-wins full replacement on the revision, so
+          # every run sends the complete set: the release-please notes as the
+          # curated changelog plus the OCI source/revision/version keys. The
+          # release body is truncated at its first '## Artifact' section so a
+          # backfill re-run never feeds the appended artifact tables back in.
+          EXTRA_ARGS=()
+          RELEASE_BODY=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.body // ""' 2>/dev/null || true)
+          printf '%s' "$RELEASE_BODY" | sed '/^## Artifact/,$d' > changelog.md
+          if grep -q '[^[:space:]]' changelog.md; then
+            EXTRA_ARGS+=(--changelog-file changelog.md)
+          fi
+          # The image was built from the tag's commit, not the triggering sha
+          # (they differ on existing_tag backfills).
+          TAG_COMMIT=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq '.sha' 2>/dev/null || true)
+          if [ -n "$TAG_COMMIT" ]; then
+            EXTRA_ARGS+=(--annotation "org.opencontainers.image.revision=$TAG_COMMIT")
+          fi
+
+          REG_HOST="${ECR_REGISTRY%%/*}"
+          REPOSITORY="${ECR_REGISTRY#*/}/$IMAGE_NAME"
+          OUTPUT=$(np artifact create \
+            --nrn "$NP_ARTIFACT_NRN" \
+            --type oci_image \
+            --registry "$REG_HOST" \
+            --repository "$REPOSITORY" \
+            --digest "$DIGEST" \
+            --tag "$TAG" \
+            --annotation "org.opencontainers.image.source=${{ github.server_url }}/$GITHUB_REPOSITORY" \
+            --annotation "org.opencontainers.image.version=$TAG" \
+            "${EXTRA_ARGS[@]}" \
+            --visible-to "organization=*" \
+            --format json)
+          echo "$OUTPUT"
+          ARTIFACT_ID=$(echo "$OUTPUT" | jq -r '.id // empty' || true)
+          [ -z "$ARTIFACT_ID" ] && ARTIFACT_ID="registered (id unavailable)"
+          echo "artifact_id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Append db artifact metadata to the release
+        if: ${{ !cancelled() }}
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+          REGISTER_RESULT: ${{ steps.artifact.outcome }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$IMAGE_NAME"
+          case "$REGISTER_RESULT" in
+            success) ID_ROW="${ARTIFACT_ID}" ;;
+            *)       ID_ROW="registration failed — see run log" ;;
+          esac
+
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.id' 2>/dev/null || true)
+          if [ -z "$RELEASE_ID" ]; then
+            RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+              --jq "[.[] | select(.tag_name==\"$TAG\")][0].id // empty")
+          fi
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::warning::no release found for $TAG; skipping the append"
+            exit 0
+          fi
+
+          # shellcheck disable=SC2016
+          SECTION=$(printf '## Artifact (aurora-postgres-db)\n\n|  |  |\n|---|---|\n| Image | `%s` |\n| Digest | `%s` |\n| Pinned reference | `%s` |\n| Artifact ID | `%s` |' \
+            "$IMAGE:$TAG" "$DIGEST" "$IMAGE@$DIGEST" "$ID_ROW")
+
+          BODY=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""')
+          if ! printf '%s' "$BODY" | grep -qF "$DIGEST"; then
+            BODY=$(printf '%s\n\n%s' "$BODY" "$SECTION")
+          fi
+          printf '%s' "$BODY" > body.md
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=false -F "body=@body.md" > /dev/null
+          echo "db artifact appended to release $TAG"
