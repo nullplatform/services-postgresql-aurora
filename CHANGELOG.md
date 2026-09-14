@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.1.1...v0.2.0) (2026-09-14)
+
+
+### Features
+
+* publish worker images for both Aurora services ([776ad37](https://github.com/nullplatform/services-postgresql-aurora/commit/776ad37cc3c9ec9bf10df73cfe31b0dd14b227b3))
+* publish worker images for both Aurora services ([8bb1aba](https://github.com/nullplatform/services-postgresql-aurora/commit/8bb1aba4f8233dd8fa0b05a7719da97f2eff5af6))
+
 ## [0.1.1](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.1.0...v0.1.1) (2026-08-24)
 
 
