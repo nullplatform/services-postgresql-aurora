@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.2.0...v0.3.0) (2026-09-18)
+
+
+### Features
+
+* dependabot for base image bumps ([bb2d5c7](https://github.com/nullplatform/services-postgresql-aurora/commit/bb2d5c7fd6725be814c96a9e465cf8cbfff3a05a))
+* dependabot for base image bumps ([a0b3cbd](https://github.com/nullplatform/services-postgresql-aurora/commit/a0b3cbd061e696ddaf3204b316e80ebe111f7c5b))
+
+
+### Bug Fixes
+
+* **ci:** auto-merge the release PR from workflow_run; Dependabot commits as fix(deps) ([4e54c20](https://github.com/nullplatform/services-postgresql-aurora/commit/4e54c20bb988bdbfcadbf1c07288db12f3e796a6))
+* **deps:** bump nullplatform/scopes/worker-bridge from 1.0.0 to 1.1.1 ([9bfdc0a](https://github.com/nullplatform/services-postgresql-aurora/commit/9bfdc0ac6509a8c69e34b1378b410356e1ef625f))
+
 ## [0.2.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.1.1...v0.2.0) (2026-09-14)
 
 
