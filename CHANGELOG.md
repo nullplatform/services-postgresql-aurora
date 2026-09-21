@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.0...v0.3.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deps:** bump actions/checkout from 4 to 7 ([#21](https://github.com/nullplatform/services-postgresql-aurora/issues/21)) ([5037623](https://github.com/nullplatform/services-postgresql-aurora/commit/50376239b7645720c14b7453505bc5bf0405107e))
+
 ## [0.3.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.2.0...v0.3.0) (2026-09-18)
 
 
