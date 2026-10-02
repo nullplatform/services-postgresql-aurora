@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.4](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.3...v0.3.4) (2026-10-02)
+
+
+### Bug Fixes
+
+* **deps:** bump docker/setup-buildx-action from 3 to 4 ([#20](https://github.com/nullplatform/services-postgresql-aurora/issues/20)) ([dc466e8](https://github.com/nullplatform/services-postgresql-aurora/commit/dc466e83494b6d10e140caf662383b0d1d022689))
+* **deps:** bump docker/setup-qemu-action from 3 to 4 ([#18](https://github.com/nullplatform/services-postgresql-aurora/issues/18)) ([1cc6e48](https://github.com/nullplatform/services-postgresql-aurora/commit/1cc6e482349a3167bfe70b3bb38b7670e58b722f))
+
 ## [0.3.3](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.2...v0.3.3) (2026-10-02)
 
 
