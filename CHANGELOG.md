@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.4...v0.3.5) (2026-10-02)
+
+
+### Bug Fixes
+
+* **deps:** bump aws-actions/configure-aws-credentials from 4 to 6 ([#19](https://github.com/nullplatform/services-postgresql-aurora/issues/19)) ([c3ba782](https://github.com/nullplatform/services-postgresql-aurora/commit/c3ba78232bfbdcd36675b98e84e6c1ba36408821))
+
 ## [0.3.4](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.3...v0.3.4) (2026-10-02)
 
 
