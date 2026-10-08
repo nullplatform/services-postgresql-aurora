@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.5...v0.4.0) (2026-10-08)
+
+
+### Features
+
+* run the worker images as a non-root user ([963feb7](https://github.com/nullplatform/services-postgresql-aurora/commit/963feb751b4202fcdec25e0dcfbff420a64be2f0))
+* run the worker images as a non-root user ([6bf6119](https://github.com/nullplatform/services-postgresql-aurora/commit/6bf611953c7e8ecbf4a3f82c4c085b50c5baceaf))
+
+
+### Bug Fixes
+
+* hand HOME to the runtime user ([bdff831](https://github.com/nullplatform/services-postgresql-aurora/commit/bdff83176945f8db9908993a07caccab701ddefe))
+
 ## [0.3.5](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.3.4...v0.3.5) (2026-10-02)
 
 
