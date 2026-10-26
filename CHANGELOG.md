@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.1...v0.4.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** bump nullplatform/scopes/worker-bridge from 2.0.3 to 2.0.6 ([7118dcb](https://github.com/nullplatform/services-postgresql-aurora/commit/7118dcbae69cd816547b7449c7892bb0bf48f426))
+* **deps:** bump nullplatform/scopes/worker-bridge from 2.0.3 to 2.0.6 ([df43c2e](https://github.com/nullplatform/services-postgresql-aurora/commit/df43c2e8e66e52fb20d662f67ad0c8af35352d48))
+
 ## [0.4.1](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.0...v0.4.1) (2026-10-16)
 
 
