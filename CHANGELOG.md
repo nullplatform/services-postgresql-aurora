@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.3...v0.4.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** update dependency opentofu/opentofu to v1.13.2 ([#41](https://github.com/nullplatform/services-postgresql-aurora/issues/41)) ([44bcc51](https://github.com/nullplatform/services-postgresql-aurora/commit/44bcc516d18f177c6bc03fdbc0fd62c7ad67b819))
+
 ## [0.4.3](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.2...v0.4.3) (2026-11-02)
 
 
