@@ -32,7 +32,7 @@ fi
 # lifetime (the directory survives across actions but is cleared on pod restart).
 # ---------------------------------------------------------------------------
 if ! command -v tofu &>/dev/null; then
-  TOFU_VERSION="1.9.0"
+  TOFU_VERSION="1.13.9"
   TOFU_BIN_DIR="/tmp/np-tofu-bin"
   TOFU_BIN="$TOFU_BIN_DIR/tofu"
 
