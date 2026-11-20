@@ -102,7 +102,63 @@ No Aurora, EC2, or VPC resources are created — those belong to the auto-discov
 ## Requirements
 
 - An active **`aurora-postgres-server`** service in the same nullplatform namespace with `status: active`, matching dimensions, and `hostname`/`master_secret_arn`/`engine_family` attributes already set.
-- See [`specs/install/README.md`](specs/install/README.md) and [`specs/requirements/aws`](specs/requirements/aws) for platform registration and the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager access — read the master secret, full lifecycle on the app secret it owns — scoped to `nullplatform/aurora/*`, plus `kms:Decrypt`/`kms:GenerateDataKey` scoped by `kms:ViaService` to Secrets Manager so a customer-managed `secret_kms_key_id` works). As with `rds-postgres-db`, this grant is shared per cluster, not per instance: anything that assumes the role can create/update/delete any secret under that prefix, not just its own.
+- [`specs/requirements/aws`](specs/requirements/aws) creates the AssumeRole IAM role (selector `aurora-postgres-db`; Secrets Manager access — read the master secret, full lifecycle on the app secret it owns — scoped to `nullplatform/aurora/*`, plus `kms:Decrypt`/`kms:GenerateDataKey` scoped by `kms:ViaService` to Secrets Manager so a customer-managed `secret_kms_key_id` works). As with `rds-postgres-db`, this grant is shared per cluster, not per instance: anything that assumes the role can create/update/delete any secret under that prefix, not just its own.
+
+## Install in your organization
+
+The service is published once as the package `np-aurora-postgres-db` (specification "Aurora PostgreSQL DB"), visible to every organization. You do not copy its specs: you install the package and use it read-only. How installing a package works, how it coexists with a copy you registered, how to upgrade, and when to fork instead are in the [package installation guide](https://docs.nullplatform.com/docs/packages/install); this section has what is specific to this service.
+
+Already registered a copy from the former `specs/install`? It keeps working: it called tofu-modules' `service_definition` on specs that stay in every release, and the package installs next to it, as the guide explains. If you sourced that directory as a module, pin its `?ref` to a release that still has it.
+
+Installing it touches the same three layers as registering a service yourself, and only the nullplatform layer changes:
+
+| Layer | What | Module |
+|---|---|---|
+| infrastructure (AWS credentials) | The IAM role the service assumes | [`specs/requirements/aws`](specs/requirements/aws) |
+| nullplatform (nullplatform API key) | The installation of the package and the agent channel | tofu-modules' `service_package_installation` |
+| bindings | The role under selector `aurora-postgres-db` in your IAM provider | your `aws-iam-configuration` provider |
+
+Pick ONE release of this repository (the latest is on its [releases page](https://github.com/nullplatform/services-postgresql-aurora/releases)) and use its version in both places below: the IAM role is the one the worker of that same release expects. Both services of this repository share the release, so install them at the same version.
+
+```hcl
+# ── infrastructure layer ─────────────────────────────────────────────
+module "aurora_postgres_db_requirements" {
+  source       = "git::https://github.com/nullplatform/services-postgresql-aurora.git//aurora-postgres-db/specs/requirements/aws?ref=vX.Y.Z"
+  cluster_name = "<nullplatform agent cluster>"
+}
+
+# The agent role must be allowed to assume it: add it to the assume_role_arns
+# of tofu-modules' infrastructure/aws/iam/agent.
+#   assume_role_arns = [..., module.aurora_postgres_db_requirements.permissions_role_arn]
+
+# ── nullplatform layer ───────────────────────────────────────────────
+# For a service the installation is the whole nullplatform side, channel included.
+module "aurora_postgres_db" {
+  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/service_package_installation?ref=v9.16.0"
+
+  nrn                  = var.nrn
+  package_slug         = "np-aurora-postgres-db"
+  package_version      = "X.Y.Z" # the same release, without the v
+  agent_tags_selectors = { cluster = "runtime" } # must match the agent's TAGS
+}
+# Keeping channels in a separate bindings layer instead? Use
+# nullplatform/package_installation here and service_definition_agent_association
+# there, with package_slug = "np-aurora-postgres-db".
+
+# ── bindings layer ───────────────────────────────────────────────────
+# One aws-iam-configuration per NRN and dimensions, at the account level: add
+# the entry to the list your IAM provider already has. Both services of this
+# repository go in the SAME provider, one selector each.
+#   { selector = "aurora-postgres-db", arn = module.aurora_postgres_db_requirements.permissions_role_arn }
+```
+
+The service assumes the role it finds under selector `aurora-postgres-db` in the IAM provider closest to its NRN. To upgrade, move the release in both layers: `ref` of the requirements module and `package_version` of the installation. See tofu-modules' [`service_package_installation`](https://github.com/nullplatform/tofu-modules/tree/main/nullplatform/service_package_installation) for its inputs and outputs.
+
+Prerequisites: an agent whose `TAGS` match the channel's `tags_selectors`, with `public.ecr.aws/nullplatform/*` in `worker.allowedRegistries` and `np-aurora-postgres-db` in its `worker_orchestrated_packages` (the worker then runs with the agent's identity, the one the role trusts); it also needs an active `aurora-postgres-server` service with matching dimensions in the same namespace.
+
+## How the package is published
+
+Every release publishes a new revision of the package from this repository, in the same run that pushes the worker image ([`.github/workflows/release.yml`](../.github/workflows/release.yml)): the `publish-package` job applies [`aurora-postgres-db/publish`](publish), a stack on tofu-modules' `service_package_publish`, which pins this tag's specs and the image by digest. The package version is the release tag, as for the image. The stack keeps its state where the organization secrets `PACKAGE_STATE_AWS_ACCOUNT_ID`, `PACKAGE_TFSTATE_BUCKET` and `PACKAGE_TFSTATE_REGION` point; the state role is `github-actions-<repository>-package-state` in that account, by convention.
 
 ## Important Considerations
 
