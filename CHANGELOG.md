@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.5...v0.5.0) (2026-11-23)
+
+
+### Features
+
+* **package:** publish both services as global packages ([4e4db3b](https://github.com/nullplatform/services-postgresql-aurora/commit/4e4db3b88557fde3f24d1717423961659611f615))
+* **package:** publish both services as global packages ([492668b](https://github.com/nullplatform/services-postgresql-aurora/commit/492668b4349cdd56bf7a53f1e414ffa42ec900b0))
+
 ## [0.4.5](https://github.com/nullplatform/services-postgresql-aurora/compare/v0.4.4...v0.4.5) (2026-11-16)
 
 
